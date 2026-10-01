@@ -1,17 +1,13 @@
 import Link from "next/link";
 import PhoneShell from "@/components/PhoneShell";
+import SignOutButton from "@/components/SignOutButton";
 
 export default function HomePage() {
   return (
     <PhoneShell>
       <div className="flex items-center justify-between px-5 pt-5 pb-4">
         <div className="text-base font-bold text-slate-900">Sleep Companion</div>
-        <div className="w-[34px] h-[34px] rounded-full border border-zinc-300 bg-white flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="1.8">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
-          </svg>
-        </div>
+        <SignOutButton />
       </div>
 
       <div className="px-5 pb-2 text-sm text-zinc-500">Welcome back, Trainer</div>
