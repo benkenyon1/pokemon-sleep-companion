@@ -139,24 +139,34 @@ export default function UploadPage() {
 
         <div className="flex flex-col gap-2.5">
           <div className="text-xs uppercase tracking-wide text-zinc-500">Subskills</div>
-          {SUBSKILL_SLOT_LEVELS.map((lvl, i) => (
-            <Field key={lvl} label={`Lv ${lvl} slot`}>
-              <select
-                value={slots[i]}
-                onChange={(e) =>
-                  setSlots((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
-                }
-                className="field"
-              >
-                <option value="">None</option>
-                {ALL_SUBSKILL_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {SUBSKILL_LABELS[id]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ))}
+          {SUBSKILL_SLOT_LEVELS.map((lvl, i) => {
+            // A Pokémon can't roll the same subskill twice — once it's picked
+            // in one slot, drop it from every other slot's options so it
+            // can't be selected again there too.
+            const chosenInOtherSlots = new Set(slots.filter((v, idx) => idx !== i && v !== ""));
+            const availableIds = ALL_SUBSKILL_IDS.filter(
+              (id) => id === slots[i] || !chosenInOtherSlots.has(id),
+            );
+
+            return (
+              <Field key={lvl} label={`Lv ${lvl} slot`}>
+                <select
+                  value={slots[i]}
+                  onChange={(e) =>
+                    setSlots((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
+                  }
+                  className="field"
+                >
+                  <option value="">None</option>
+                  {availableIds.map((id) => (
+                    <option key={id} value={id}>
+                      {SUBSKILL_LABELS[id]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            );
+          })}
         </div>
 
         <button
