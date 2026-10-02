@@ -3,9 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import PhoneShell from "@/components/PhoneShell";
-import { NATURE_NAMES } from "@/lib/scoring/natures";
+import { findNatureName, NATURE_STAT_LABELS, NATURE_STATS } from "@/lib/scoring/natures";
 import { ALL_SUBSKILL_IDS, SUBSKILL_LABELS, SUBSKILL_SLOT_LEVELS } from "@/lib/scoring/subskills";
-import { IngredientSpread, Specialty } from "@/lib/scoring/types";
+import { IngredientSpread, NatureStat, Specialty } from "@/lib/scoring/types";
+
+const NONE = "none" as const;
+type StatChoice = NatureStat | typeof NONE;
 
 const SPREADS: IngredientSpread[] = ["AAA", "AAB", "AAC", "ABB", "ABA", "ABC"];
 
@@ -16,12 +19,29 @@ export default function UploadPage() {
   const router = useRouter();
   const [specialty, setSpecialty] = useState<Specialty>("ingredient");
   const [level, setLevel] = useState(42);
-  const [nature, setNature] = useState("Adamant");
+  const [upStat, setUpStat] = useState<StatChoice>("speedOfHelp");
+  const [downStat, setDownStat] = useState<StatChoice>("ingredientFinding");
   const [spread, setSpread] = useState<IngredientSpread>("AAB");
   const [slots, setSlots] = useState<string[]>(["", "", "", "", ""]);
 
+  function handleUpStatChange(value: StatChoice) {
+    setUpStat(value);
+    // A Nature can't move the same stat both up and down, and "no increase"
+    // always pairs with "no decrease" (that's Neutral) — keep downStat valid
+    // rather than letting the form settle into a pair with no matching Nature.
+    if (value === NONE) {
+      setDownStat(NONE);
+    } else if (downStat === value || downStat === NONE) {
+      setDownStat(NATURE_STATS.find((s) => s !== value) ?? NONE);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const up = upStat === NONE ? null : upStat;
+    const down = downStat === NONE ? null : downStat;
+    const nature = findNatureName(up, down) ?? "Hardy";
+
     const params = new URLSearchParams({
       specialty,
       level: String(level),
@@ -72,11 +92,32 @@ export default function UploadPage() {
           />
         </Field>
 
-        <Field label="Nature">
-          <select value={nature} onChange={(e) => setNature(e.target.value)} className="field">
-            {NATURE_NAMES.map((n) => (
-              <option key={n} value={n}>
-                {n}
+        <Field label="Nature — stat up">
+          <select
+            value={upStat}
+            onChange={(e) => handleUpStatChange(e.target.value as StatChoice)}
+            className="field"
+          >
+            <option value={NONE}>No increase (Neutral)</option>
+            {NATURE_STATS.map((s) => (
+              <option key={s} value={s}>
+                {NATURE_STAT_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Nature — stat down">
+          <select
+            value={downStat}
+            onChange={(e) => setDownStat(e.target.value as StatChoice)}
+            disabled={upStat === NONE}
+            className="field disabled:opacity-60"
+          >
+            <option value={NONE}>{upStat === NONE ? "No decrease (Neutral)" : "Select a stat"}</option>
+            {NATURE_STATS.filter((s) => s !== upStat).map((s) => (
+              <option key={s} value={s}>
+                {NATURE_STAT_LABELS[s]}
               </option>
             ))}
           </select>

@@ -1,11 +1,22 @@
 import Link from "next/link";
 import PhoneShell from "@/components/PhoneShell";
-import { NATURE_TABLE } from "@/lib/scoring/natures";
+import { NATURE_STAT_LABELS, NATURE_TABLE } from "@/lib/scoring/natures";
 import { scorePokemon } from "@/lib/scoring/scorePokemon";
 import { getUnlockedSubskills, SUBSKILL_LABELS, SUBSKILL_SLOT_LEVELS } from "@/lib/scoring/subskills";
 import { IngredientSpread, Specialty, SubskillId } from "@/lib/scoring/types";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+/**
+ * Singular/plural labels per specialty. Deriving the singular form from the
+ * plural with .slice(0, -1) looked fine for "Ingredients"/"Skills" but broke
+ * for "Berries" -> "Berrie" — an explicit table avoids that class of bug.
+ */
+const SPECIALTY_LABEL: Record<Specialty, { singular: string; plural: string }> = {
+  ingredient: { singular: "Ingredient", plural: "Ingredients" },
+  berry: { singular: "Berry", plural: "Berries" },
+  skill: { singular: "Skill", plural: "Skills" },
+};
 
 export default async function ResultPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -22,8 +33,33 @@ export default async function ResultPage({ searchParams }: { searchParams: Searc
 
   const result = scorePokemon({ specialty, level, nature, spread, unlockedSubskills });
 
-  const specialtyLabel = specialty === "ingredient" ? "Ingredients" : specialty === "berry" ? "Berries" : "Skills";
+  const specialtyLabel = SPECIALTY_LABEL[specialty].plural;
   const isKeep = result.recommendation === "keep";
+
+  // The top stat card should surface whatever actually moves this Pokémon's
+  // own score — Ingredient Spread has zero effect on Berry/Skill mons (see
+  // scorePokemon.ts: only ingredientBucketValue reads the spread weight), so
+  // featuring it there regardless of specialty was actively misleading.
+  const hasBerryFinding = assignedSlots.includes("berryFindingS");
+  const hasSkillTrigger = assignedSlots.includes("skillTriggerS") || assignedSlots.includes("skillTriggerM");
+  const primaryCard =
+    specialty === "ingredient"
+      ? {
+          title: "Ingredient Spread",
+          badge: spread,
+          caption: `Score contribution: ${result.ingredient.score}/100 vs. this species' ceiling`,
+        }
+      : specialty === "berry"
+        ? {
+            title: "Berry Output",
+            badge: hasBerryFinding ? "Berry Finding S" : "Standard",
+            caption: `Score contribution: ${result.berry.score}/100 vs. this species' ceiling`,
+          }
+        : {
+            title: "Skill Triggers",
+            badge: hasSkillTrigger ? "Trigger boosted" : "Standard",
+            caption: `Score contribution: ${result.skill.score}/100 vs. this species' ceiling`,
+          };
 
   return (
     <PhoneShell>
@@ -47,7 +83,7 @@ export default async function ResultPage({ searchParams }: { searchParams: Searc
           <div className="flex-1">
             <div className="text-[15px] font-bold text-slate-900">Pokémon Name</div>
             <div className="text-[11.5px] text-zinc-400 mt-0.5">
-              Lv. {level} · {specialtyLabel.slice(0, -1)} specialist
+              Lv. {level} · {SPECIALTY_LABEL[specialty].singular} Specialist
             </div>
           </div>
           <div className="text-[11px] text-zinc-600 bg-slate-100 border border-zinc-200 rounded-full px-2.5 py-1 shrink-0">
@@ -55,16 +91,23 @@ export default async function ResultPage({ searchParams }: { searchParams: Searc
           </div>
         </div>
 
-        {/* Ingredient spread */}
+        {/* Primary stat (specialty-dependent — see primaryCard above) */}
         <div className="bg-white border border-zinc-200 rounded-xl px-3.5 py-3">
           <div className="flex items-center justify-between">
-            <CardLabel>Ingredient Spread</CardLabel>
-            <div className="text-[15px] font-extrabold text-slate-900 tracking-wide">{spread}</div>
+            <CardLabel>{primaryCard.title}</CardLabel>
+            <div className="text-[15px] font-extrabold text-slate-900 tracking-wide">{primaryCard.badge}</div>
           </div>
-          <div className="text-xs text-zinc-500 mt-0.5">
-            Score contribution: {result.ingredient.score}/100 vs. this species&apos; ceiling
-          </div>
+          <div className="text-xs text-zinc-500 mt-0.5">{primaryCard.caption}</div>
         </div>
+
+        {/* Ingredient Spread is still shown, just de-emphasized for non-Ingredient
+            mons since it doesn't move their score. */}
+        {specialty !== "ingredient" && (
+          <div className="flex items-center justify-between px-1 -mt-1.5 mb-1">
+            <div className="text-[11px] text-zinc-400">Ingredient Spread (doesn&apos;t affect this specialty)</div>
+            <div className="text-[11px] text-zinc-400 font-semibold tracking-wide">{spread}</div>
+          </div>
+        )}
 
         {/* Subskills */}
         <div className="bg-white border border-zinc-200 rounded-xl px-3.5 py-3">
@@ -91,8 +134,12 @@ export default async function ResultPage({ searchParams }: { searchParams: Searc
           <CardLabel>Nature</CardLabel>
           <div className="flex items-center justify-between mt-1.5">
             <div className="flex flex-col gap-0.5">
-              {nature.up && <div className="text-[13.5px] font-bold text-green-600">▲ {statLabel(nature.up)}</div>}
-              {nature.down && <div className="text-[13.5px] font-bold text-red-600">▼ {statLabel(nature.down)}</div>}
+              {nature.up && (
+                <div className="text-[13.5px] font-bold text-green-600">▲ {NATURE_STAT_LABELS[nature.up]}</div>
+              )}
+              {nature.down && (
+                <div className="text-[13.5px] font-bold text-red-600">▼ {NATURE_STAT_LABELS[nature.down]}</div>
+              )}
               {!nature.up && !nature.down && <div className="text-[13.5px] text-zinc-400">Neutral</div>}
             </div>
             <div className="text-[11px] text-zinc-400 border border-zinc-200 rounded-full px-2.5 py-1">
@@ -153,21 +200,4 @@ export default async function ResultPage({ searchParams }: { searchParams: Searc
 
 function CardLabel({ children }: { children: React.ReactNode }) {
   return <div className="text-[10.5px] uppercase tracking-wide text-zinc-400 font-semibold">{children}</div>;
-}
-
-function statLabel(stat: string) {
-  switch (stat) {
-    case "expGains":
-      return "EXP Gains";
-    case "energyRecovery":
-      return "Energy Recovery";
-    case "ingredientFinding":
-      return "Ingredient Finding";
-    case "mainSkillChance":
-      return "Main Skill Chance";
-    case "speedOfHelp":
-      return "Speed of Help";
-    default:
-      return stat;
-  }
 }

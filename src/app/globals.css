@@ -26,5 +26,13 @@ body {
 }
 
 .field {
-  @apply border border-zinc-300 rounded-md px-3 py-3 text-[15px] bg-white w-full;
+  /* Always a dark-on-white field, regardless of the visitor's system color
+     scheme — without an explicit text color this inherited the global
+     --foreground variable, which flips to a near-white gray in dark mode
+     and became nearly invisible on the field's always-white background. */
+  @apply border border-zinc-300 rounded-md px-3 py-3 text-[15px] text-zinc-900 bg-white w-full;
+}
+
+.field::placeholder {
+  @apply text-zinc-400;
 }

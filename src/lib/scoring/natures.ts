@@ -1,4 +1,4 @@
-import { Nature } from "./types";
+import { Nature, NatureStat } from "./types";
 
 /** Full Nature name -> stat pair table, confirmed against the game (spec section 5). */
 export const NATURE_TABLE: Record<string, Nature> = {
@@ -35,3 +35,33 @@ export const NATURE_TABLE: Record<string, Nature> = {
 };
 
 export const NATURE_NAMES = Object.keys(NATURE_TABLE);
+
+/** The 5 Nature stats, in the order they should appear in any picker. */
+export const NATURE_STATS: NatureStat[] = [
+  "expGains",
+  "energyRecovery",
+  "ingredientFinding",
+  "mainSkillChance",
+  "speedOfHelp",
+];
+
+export const NATURE_STAT_LABELS: Record<NatureStat, string> = {
+  expGains: "EXP Gains",
+  energyRecovery: "Energy Recovery",
+  ingredientFinding: "Ingredient Finding",
+  mainSkillChance: "Main Skill Chance",
+  speedOfHelp: "Speed of Help",
+};
+
+/**
+ * Picking a Nature by name means memorizing which of the 25 names moves
+ * which stats — this looks it up the other way round, from the stat pair a
+ * player actually sees in-game, so the UI can offer a "+ stat" / "- stat"
+ * picker instead of a bare name list.
+ */
+export function findNatureName(up: NatureStat | null, down: NatureStat | null): string | null {
+  const entry = Object.entries(NATURE_TABLE).find(
+    ([, nature]) => nature.up === up && nature.down === down,
+  );
+  return entry ? entry[0] : null;
+}
